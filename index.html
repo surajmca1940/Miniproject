@@ -1,1 +1,451 @@
-abcd
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --sidebar-width: 250px;
+            --background: #f5f5f5;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Menu */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            position: fixed;
+            height: 100%;
+        }
+
+        .menu-items {
+            list-style: none;
+            margin-top: 30px;
+        }
+
+        .menu-item {
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .menu-item:hover {
+            background: #34495e;
+        }
+
+        .menu-item.active {
+            background: var(--primary-color);
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 30px;
+        }
+
+        /* Modules */
+        .module {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        /* Task List */
+        .task-list {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        /* Calendars */
+        .calendar {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 3px;
+        }
+
+        .calendar-day {
+            padding: 10px;
+            text-align: center;
+            font-size: 0.9em;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .calendar-day.has-tasks {
+            background: #e3f2fd;
+            font-weight: bold;
+        }
+
+        .selected-date {
+            background: var(--primary-color) !important;
+            color: white;
+        }
+
+        /* Todo Form */
+        .todo-form {
+            display: grid;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Menu -->
+        <div class="sidebar">
+            <h2>Navigation</h2>
+            <ul class="menu-items">
+                <li class="menu-item active" onclick="showModule('dashboard')">📊 Dashboard</li>
+                <li class="menu-item" onclick="showModule('calendar')">📅 Calendar</li>
+                <li class="menu-item" onclick="showModule('todo')">📝 Todo List</li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Module -->
+            <div id="dashboard" class="module">
+                <div class="dashboard-grid">
+                    <!-- Task List -->
+                    <div>
+                        <h2>Tasks for <span id="selectedDateLabel"></span></h2>
+                        <div class="task-list" id="dashboardTaskList"></div>
+                    </div>
+                    
+                    <!-- Compact Calendar -->
+                    <div class="calendar">
+                        <div class="calendar-header">
+                            <button onclick="changeMonth(-1, true)">←</button>
+                            <h3 id="compactMonth"></h3>
+                            <button onclick="changeMonth(1, true)">→</button>
+                        </div>
+                        <div class="calendar-grid" id="compactCalendar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar Module -->
+            <div id="calendar" class="module" style="display: none;">
+                <h2>Calendar</h2>
+                <div class="calendar-header">
+                    <button onclick="changeMonth(-1)">←</button>
+                    <h3 id="currentMonth"></h3>
+                    <button onclick="changeMonth(1)">→</button>
+                </div>
+                <div class="calendar-grid" id="mainCalendar"></div>
+            </div>
+
+            <!-- Todo List Module -->
+            <div id="todo" class="module" style="display: none;">
+                <h2>Todo List Manager</h2>
+                <form id="todoForm">
+                    <input type="text" id="taskInput" placeholder="New task name" required>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <input type="date" id="startDate" required>
+                        <input type="date" id="endDate" required>
+                    </div>
+                    <button type="submit">Add Task</button>
+                </form>
+                <div class="task-list" id="taskList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let selectedDate = new Date();
+
+        // Module Navigation
+        function showModule(moduleId) {
+            document.querySelectorAll('.module').forEach(module => {
+                module.style.display = 'none';
+            });
+            document.getElementById(moduleId).style.display = 'block';
+            
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            if(moduleId === 'dashboard') renderDashboard();
+            if(moduleId === 'calendar') renderMainCalendar();
+            if(moduleId === 'todo') renderTodoList();
+        }
+
+        // Dashboard Functions
+        function renderDashboard() {
+            renderCompactCalendar();
+            updateTaskList();
+        }
+
+        function renderCompactCalendar() {
+            const calendar = document.getElementById('compactCalendar');
+            const monthLabel = document.getElementById('compactMonth');
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+            monthLabel.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
+            calendar.innerHTML = '';
+
+            // Previous month days
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                calendar.appendChild(createDayElement(''));
+            }
+
+            // Current month days
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const dayElement = createDayElement(day, date, true);
+                
+                if (hasTasksOnDate(date)) {
+                    dayElement.classList.add('has-tasks');
+                }
+                
+                if (date.toDateString() === selectedDate.toDateString()) {
+                    dayElement.classList.add('selected-date');
+                }
+                
+                calendar.appendChild(dayElement);
+            }
+        }
+
+        function updateTaskList() {
+            const taskList = document.getElementById('dashboardTaskList');
+            const filteredTasks = tasks.filter(task => 
+                new Date(task.start) <= selectedDate && 
+                new Date(task.end) >= selectedDate &&
+                !task.completed
+            );
+
+            document.getElementById('selectedDateLabel').textContent = 
+                selectedDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+            taskList.innerHTML = filteredTasks.map(task => `
+                <div class="task-item">
+                    <div>
+                        <h4>${task.text}</h4>
+                        <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
+                    </div>
+                    <button onclick="toggleTask(${task.id})">✓ Complete</button>
+                </div>
+            `).join('') || '<p>No tasks for selected date</p>';
+        }
+
+        // Calendar Functions
+        function renderMainCalendar() {
+            const calendar = document.getElementById('mainCalendar');
+            const monthLabel = document.getElementById('currentMonth');
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+            monthLabel.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
+            calendar.innerHTML = '';
+
+            // Previous month days
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                calendar.appendChild(createDayElement(''));
+            }
+
+            // Current month days
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const dayElement = createDayElement(day, date);
+                
+                if (hasTasksOnDate(date)) {
+                    dayElement.classList.add('has-tasks');
+                }
+                
+                calendar.appendChild(dayElement);
+            }
+        }
+
+        // Todo List Functions
+        document.getElementById('todoForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const task = {
+                id: Date.now(),
+                text: document.getElementById('taskInput').value.trim(),
+                start: document.getElementById('startDate').value,
+                end: document.getElementById('endDate').value,
+                completed: false
+            };
+            
+            if (!task.text || !task.start || !task.end) return;
+            
+            tasks.push(task);
+            saveData();
+            renderTodoList();
+            if(document.getElementById('dashboard').style.display === 'block') renderDashboard();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+            e.target.reset();
+        });
+
+        function renderTodoList() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = tasks.map(task => `
+                <div class="task-item">
+                    <div>
+                        <h4 style="${task.completed ? 'text-decoration: line-through' : ''}">${task.text}</h4>
+                        <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
+                    </div>
+                    <div>
+                        <button onclick="toggleTask(${task.id})">
+                            ${task.completed ? '✓' : '◻'}
+                        </button>
+                        <button onclick="deleteTask(${task.id})">×</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Common Functions
+        function createDayElement(day, date, isCompact = false) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+            
+            if (date) {
+                dayElement.addEventListener('click', () => {
+                    selectedDate = date;
+                    if(isCompact) {
+                        renderDashboard();
+                    } else {
+                        renderMainCalendar();
+                    }
+                    updateTaskList();
+                });
+            }
+            
+            return dayElement;
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(task => 
+                task.id === id ? {...task, completed: !task.completed} : task
+            );
+            saveData();
+            renderTodoList();
+            updateTaskList();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveData();
+            renderTodoList();
+            updateTaskList();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+        }
+
+        function changeMonth(offset, isCompact = false) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            if(isCompact) {
+                renderCompactCalendar();
+            } else {
+                renderMainCalendar();
+            }
+            updateTaskList();
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function hasTasksOnDate(date) {
+            return tasks.some(task => 
+                new Date(task.start) <= date && 
+                new Date(task.end) >= date &&
+                !task.completed
+            );
+        }
+
+        function saveData() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Initial Load
+        renderDashboard();
+    </script>
+</body>
+</html>
