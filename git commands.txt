@@ -5,4 +5,5 @@ git status = shows you which files are remaining to upload on main branch
 git add index.html = it add files to main branch
 git commit -m = it use for telling what have you done 
 git checkout origin head = push your changes to git hub
- 
+git push origin suraj --force = if you want to overwrite the code in your branch 
+git pull origin main --rebase = You want to combine both your local and remote changes
