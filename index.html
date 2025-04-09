@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Management Dashboard</title>
+    <title>Project Management Dashboard</title>
     <style>
         :root {
             --primary-color: #4CAF50;
@@ -98,7 +98,7 @@
             border-radius: 8px;
         }
 
-        /* Calendars */
+        /* Calendar */
         .calendar {
             background: var(--card-bg);
             padding: 20px;
@@ -137,14 +137,57 @@
             color: white;
         }
 
-        /* Todo Form */
+        /* Project Stats */
+        .project-stats {
+            margin-top: 25px;
+        }
+
+        .project-stat-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        /* Project Cards */
+        .project-card {
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .project-task-count {
+            background: var(--primary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+
+        /* Forms */
         .todo-form {
             display: grid;
             gap: 15px;
             margin: 15px 0;
         }
 
-        input, button {
+        input, select, button {
             padding: 12px;
             border: 1px solid #ddd;
             border-radius: 6px;
@@ -166,6 +209,7 @@
             <h2>Navigation</h2>
             <ul class="menu-items">
                 <li class="menu-item active" onclick="showModule('dashboard')">📊 Dashboard</li>
+                <li class="menu-item" onclick="showModule('projects')">📁 Projects</li>
                 <li class="menu-item" onclick="showModule('calendar')">📅 Calendar</li>
                 <li class="menu-item" onclick="showModule('todo')">📝 Todo List</li>
             </ul>
@@ -176,13 +220,19 @@
             <!-- Dashboard Module -->
             <div id="dashboard" class="module">
                 <div class="dashboard-grid">
-                    <!-- Task List -->
+                    <!-- Left Column -->
                     <div>
                         <h2>Tasks for <span id="selectedDateLabel"></span></h2>
                         <div class="task-list" id="dashboardTaskList"></div>
+                        
+                        <!-- Project Progress -->
+                        <div class="project-stats">
+                            <h3>Project Progress</h3>
+                            <div id="projectStats"></div>
+                        </div>
                     </div>
                     
-                    <!-- Compact Calendar -->
+                    <!-- Right Column -->
                     <div class="calendar">
                         <div class="calendar-header">
                             <button onclick="changeMonth(-1, true)">←</button>
@@ -190,6 +240,24 @@
                             <button onclick="changeMonth(1, true)">→</button>
                         </div>
                         <div class="calendar-grid" id="compactCalendar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Module -->
+            <div id="projects" class="module" style="display: none;">
+                <div class="project-header">
+                    <h2>Projects</h2>
+                    <button onclick="showCreateProjectForm()">+ New Project</button>
+                </div>
+                <div id="projectsList"></div>
+                <div id="createProjectForm" style="display: none; margin-top: 20px;">
+                    <div class="todo-form">
+                        <input type="text" id="projectName" placeholder="Project name">
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="createProject()">Create</button>
+                            <button onclick="cancelProjectCreate()">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,12 +276,15 @@
             <!-- Todo List Module -->
             <div id="todo" class="module" style="display: none;">
                 <h2>Todo List Manager</h2>
-                <form id="todoForm">
+                <form id="todoForm" class="todo-form">
                     <input type="text" id="taskInput" placeholder="New task name" required>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <input type="date" id="startDate" required>
                         <input type="date" id="endDate" required>
                     </div>
+                    <select id="projectSelect" required>
+                        <option value="">Select Project</option>
+                    </select>
                     <button type="submit">Add Task</button>
                 </form>
                 <div class="task-list" id="taskList"></div>
@@ -223,6 +294,7 @@
 
     <script>
         let currentDate = new Date();
+        let projects = JSON.parse(localStorage.getItem('projects')) || [];
         let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
         let selectedDate = new Date();
 
@@ -241,12 +313,153 @@
             if(moduleId === 'dashboard') renderDashboard();
             if(moduleId === 'calendar') renderMainCalendar();
             if(moduleId === 'todo') renderTodoList();
+            if(moduleId === 'projects') renderProjects();
         }
 
-        // Dashboard Functions
-        function renderDashboard() {
-            renderCompactCalendar();
-            updateTaskList();
+        // Project Functions
+        function showCreateProjectForm() {
+            document.getElementById('createProjectForm').style.display = 'block';
+        }
+
+        function cancelProjectCreate() {
+            document.getElementById('createProjectForm').style.display = 'none';
+            document.getElementById('projectName').value = '';
+        }
+
+        function createProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) return;
+
+            const project = {
+                id: Date.now(),
+                name: projectName,
+                created: new Date().toISOString()
+            };
+
+            projects.push(project);
+            saveData();
+            renderProjects();
+            updateProjectSelect();
+            cancelProjectCreate();
+        }
+
+        function renderProjects() {
+            const projectsList = document.getElementById('projectsList');
+            projectsList.innerHTML = projects.map(project => `
+                <div class="project-card" onclick="viewProject(${project.id})">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>${project.name}</div>
+                        <div class="project-task-count">
+                            ${tasks.filter(t => t.projectId === project.id).length} tasks
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function viewProject(projectId) {
+            alert(`Viewing project: ${projects.find(p => p.id === projectId).name}`);
+        }
+
+        function updateProjectSelect() {
+            const select = document.getElementById('projectSelect');
+            select.innerHTML = `
+                <option value="">Select Project</option>
+                ${projects.map(p => `
+                    <option value="${p.id}">${p.name}</option>
+                `).join('')}
+            `;
+        }
+
+        // Task Functions
+        document.getElementById('todoForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const projectSelect = document.getElementById('projectSelect');
+            
+            const task = {
+                id: Date.now(),
+                text: document.getElementById('taskInput').value.trim(),
+                start: document.getElementById('startDate').value,
+                end: document.getElementById('endDate').value,
+                projectId: parseInt(projectSelect.value),
+                completed: false
+            };
+            
+            if (!task.text || !task.start || !task.end || !task.projectId) return;
+            
+            tasks.push(task);
+            saveData();
+            renderTodoList();
+            renderProjects();
+            renderDashboard();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+            e.target.reset();
+        });
+
+        function renderTodoList() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = tasks.map(task => {
+                const project = projects.find(p => p.id === task.projectId);
+                return `
+                    <div class="task-item">
+                        <div>
+                            <h4 style="${task.completed ? 'text-decoration: line-through' : ''}">
+                                ${task.text}
+                                <small>(${project?.name || 'No Project'})</small>
+                            </h4>
+                            <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
+                        </div>
+                        <div>
+                            <button onclick="toggleTask(${task.id})">
+                                ${task.completed ? '✓' : '◻'}
+                            </button>
+                            <button onclick="deleteTask(${task.id})">×</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(task => 
+                task.id === id ? {...task, completed: !task.completed} : task
+            );
+            saveData();
+            renderTodoList();
+            renderDashboard();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveData();
+            renderTodoList();
+            renderDashboard();
+            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+        }
+
+        // Calendar Functions
+        function renderMainCalendar() {
+            const calendar = document.getElementById('mainCalendar');
+            const monthLabel = document.getElementById('currentMonth');
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+            monthLabel.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
+            calendar.innerHTML = '';
+
+            for (let i = 0; i < firstDay.getDay(); i++) {
+                calendar.appendChild(createDayElement(''));
+            }
+
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                const dayElement = createDayElement(day, date);
+                if (hasTasksOnDate(date)) {
+                    dayElement.classList.add('has-tasks');
+                }
+                calendar.appendChild(dayElement);
+            }
         }
 
         function renderCompactCalendar() {
@@ -258,26 +471,43 @@
             monthLabel.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
             calendar.innerHTML = '';
 
-            // Previous month days
             for (let i = 0; i < firstDay.getDay(); i++) {
                 calendar.appendChild(createDayElement(''));
             }
 
-            // Current month days
             for (let day = 1; day <= lastDay.getDate(); day++) {
                 const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
                 const dayElement = createDayElement(day, date, true);
-                
                 if (hasTasksOnDate(date)) {
                     dayElement.classList.add('has-tasks');
                 }
-                
                 if (date.toDateString() === selectedDate.toDateString()) {
                     dayElement.classList.add('selected-date');
                 }
-                
                 calendar.appendChild(dayElement);
             }
+        }
+
+        function createDayElement(day, date, isCompact = false) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+            
+            if (date) {
+                dayElement.addEventListener('click', () => {
+                    selectedDate = date;
+                    if(isCompact) renderDashboard();
+                    updateTaskList();
+                });
+            }
+            return dayElement;
+        }
+
+        // Dashboard Functions
+        function renderDashboard() {
+            renderCompactCalendar();
+            updateTaskList();
+            renderProjectStats();
         }
 
         function updateTaskList() {
@@ -307,119 +537,37 @@
             `).join('') || '<p>No tasks for selected date</p>';
         }
 
-        // Calendar Functions
-        function renderMainCalendar() {
-            const calendar = document.getElementById('mainCalendar');
-            const monthLabel = document.getElementById('currentMonth');
-            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-
-            monthLabel.textContent = `${firstDay.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
-            calendar.innerHTML = '';
-
-            // Previous month days
-            for (let i = 0; i < firstDay.getDay(); i++) {
-                calendar.appendChild(createDayElement(''));
-            }
-
-            // Current month days
-            for (let day = 1; day <= lastDay.getDate(); day++) {
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                const dayElement = createDayElement(day, date);
-                
-                if (hasTasksOnDate(date)) {
-                    dayElement.classList.add('has-tasks');
-                }
-                
-                calendar.appendChild(dayElement);
-            }
+        // Project Progress
+        function calculateProjectProgress(projectId) {
+            const projectTasks = tasks.filter(t => t.projectId === projectId);
+            if (projectTasks.length === 0) return 0;
+            const completed = projectTasks.filter(t => t.completed).length;
+            return Math.round((completed / projectTasks.length) * 100);
         }
 
-        // Todo List Functions
-        document.getElementById('todoForm').addEventListener('submit', e => {
-            e.preventDefault();
-            const task = {
-                id: Date.now(),
-                text: document.getElementById('taskInput').value.trim(),
-                start: document.getElementById('startDate').value,
-                end: document.getElementById('endDate').value,
-                completed: false
-            };
-            
-            if (!task.text || !task.start || !task.end) return;
-            
-            tasks.push(task);
-            saveData();
-            renderTodoList();
-            if(document.getElementById('dashboard').style.display === 'block') renderDashboard();
-            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
-            e.target.reset();
-        });
-
-        function renderTodoList() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = tasks.map(task => `
-                <div class="task-item">
-                    <div>
-                        <h4 style="${task.completed ? 'text-decoration: line-through' : ''}">${task.text}</h4>
-                        <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
+        function renderProjectStats() {
+            const statsContainer = document.getElementById('projectStats');
+            statsContainer.innerHTML = projects.map(project => {
+                const progress = calculateProjectProgress(project.id);
+                return `
+                    <div class="project-stat-item">
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong>${project.name}</strong>
+                            <span>${progress}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
                     </div>
-                    <div>
-                        <button onclick="toggleTask(${task.id})">
-                            ${task.completed ? '✓' : '◻'}
-                        </button>
-                        <button onclick="deleteTask(${task.id})">×</button>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
-        // Common Functions
-        function createDayElement(day, date, isCompact = false) {
-            const dayElement = document.createElement('div');
-            dayElement.className = 'calendar-day';
-            dayElement.textContent = day;
-            
-            if (date) {
-                dayElement.addEventListener('click', () => {
-                    selectedDate = date;
-                    if(isCompact) {
-                        renderDashboard();
-                    } else {
-                        renderMainCalendar();
-                    }
-                    updateTaskList();
-                });
-            }
-            
-            return dayElement;
-        }
-
-        function toggleTask(id) {
-            tasks = tasks.map(task => 
-                task.id === id ? {...task, completed: !task.completed} : task
-            );
-            saveData();
-            renderTodoList();
-            updateTaskList();
-            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
-        }
-
-        function deleteTask(id) {
-            tasks = tasks.filter(task => task.id !== id);
-            saveData();
-            renderTodoList();
-            updateTaskList();
-            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
-        }
-
+        // Helper Functions
         function changeMonth(offset, isCompact = false) {
             currentDate.setMonth(currentDate.getMonth() + offset);
-            if(isCompact) {
-                renderCompactCalendar();
-            } else {
-                renderMainCalendar();
-            }
+            if(isCompact) renderCompactCalendar();
+            else renderMainCalendar();
             updateTaskList();
         }
 
@@ -441,10 +589,13 @@
         }
 
         function saveData() {
+            localStorage.setItem('projects', JSON.stringify(projects));
             localStorage.setItem('tasks', JSON.stringify(tasks));
         }
 
         // Initial Load
+        updateProjectSelect();
+        renderProjects();
         renderDashboard();
     </script>
 </body>
