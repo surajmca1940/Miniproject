@@ -28,7 +28,6 @@
             min-height: 100vh;
         }
 
-        /* Sidebar Menu */
         .sidebar {
             width: var(--sidebar-width);
             background: #2c3e50;
@@ -59,14 +58,12 @@
             background: var(--primary-color);
         }
 
-        /* Main Content */
         .main-content {
             margin-left: var(--sidebar-width);
             flex: 1;
             padding: 30px;
         }
 
-        /* Modules */
         .module {
             background: var(--card-bg);
             padding: 25px;
@@ -75,14 +72,12 @@
             margin-bottom: 25px;
         }
 
-        /* Dashboard Layout */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 30px;
         }
 
-        /* Task List */
         .task-list {
             list-style: none;
             margin-top: 20px;
@@ -98,7 +93,25 @@
             border-radius: 8px;
         }
 
-        /* Calendar */
+        /* New Status and Priority Styles */
+        .task-meta {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .status-tag, .priority-tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        .status-todo { background: #e0e0e0; color: #424242; }
+        .status-in-progress { background: #fff3e0; color: #ef6c00; }
+        .status-done { background: #e8f5e9; color: #2e7d32; }
+        .priority-low { background: #e8f5e9; color: #2e7d32; }
+        .priority-medium { background: #fff3e0; color: #ef6c00; }
+        .priority-high { background: #ffebee; color: #c62828; }
         .calendar {
             background: var(--card-bg);
             padding: 20px;
@@ -137,7 +150,6 @@
             color: white;
         }
 
-        /* Project Stats */
         .project-stats {
             margin-top: 25px;
         }
@@ -163,7 +175,6 @@
             transition: width 0.3s ease;
         }
 
-        /* Project Cards */
         .project-card {
             padding: 15px;
             margin: 10px 0;
@@ -180,7 +191,6 @@
             font-size: 0.9em;
         }
 
-        /* Forms */
         .todo-form {
             display: grid;
             gap: 15px;
@@ -204,7 +214,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Sidebar Menu -->
         <div class="sidebar">
             <h2>Navigation</h2>
             <ul class="menu-items">
@@ -215,24 +224,17 @@
             </ul>
         </div>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Dashboard Module -->
             <div id="dashboard" class="module">
                 <div class="dashboard-grid">
-                    <!-- Left Column -->
                     <div>
                         <h2>Tasks for <span id="selectedDateLabel"></span></h2>
                         <div class="task-list" id="dashboardTaskList"></div>
-                        
-                        <!-- Project Progress -->
                         <div class="project-stats">
                             <h3>Project Progress</h3>
                             <div id="projectStats"></div>
                         </div>
                     </div>
-                    
-                    <!-- Right Column -->
                     <div class="calendar">
                         <div class="calendar-header">
                             <button onclick="changeMonth(-1, true)">←</button>
@@ -244,7 +246,6 @@
                 </div>
             </div>
 
-            <!-- Projects Module -->
             <div id="projects" class="module" style="display: none;">
                 <div class="project-header">
                     <h2>Projects</h2>
@@ -262,7 +263,6 @@
                 </div>
             </div>
 
-            <!-- Calendar Module -->
             <div id="calendar" class="module" style="display: none;">
                 <h2>Calendar</h2>
                 <div class="calendar-header">
@@ -273,11 +273,22 @@
                 <div class="calendar-grid" id="mainCalendar"></div>
             </div>
 
-            <!-- Todo List Module -->
             <div id="todo" class="module" style="display: none;">
                 <h2>Todo List Manager</h2>
                 <form id="todoForm" class="todo-form">
                     <input type="text" id="taskInput" placeholder="New task name" required>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <select id="statusSelect" required>
+                            <option value="To Do">To Do</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Done">Done</option>
+                        </select>
+                        <select id="prioritySelect" required>
+                            <option value="Low">Low Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="High">High Priority</option>
+                        </select>
+                    </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <input type="date" id="startDate" required>
                         <input type="date" id="endDate" required>
@@ -296,9 +307,9 @@
         let currentDate = new Date();
         let projects = JSON.parse(localStorage.getItem('projects')) || [];
         let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
         let selectedDate = new Date();
 
-        // Module Navigation
         function showModule(moduleId) {
             document.querySelectorAll('.module').forEach(module => {
                 module.style.display = 'none';
@@ -375,59 +386,84 @@
         document.getElementById('todoForm').addEventListener('submit', e => {
             e.preventDefault();
             const projectSelect = document.getElementById('projectSelect');
+            const projectId = parseInt(projectSelect.value);
             
+            if (isNaN(projectId)) {
+                alert('Please select a project!');
+                return;
+            }
+
             const task = {
                 id: Date.now(),
                 text: document.getElementById('taskInput').value.trim(),
                 start: document.getElementById('startDate').value,
                 end: document.getElementById('endDate').value,
-                projectId: parseInt(projectSelect.value),
+                status: document.getElementById('statusSelect').value,
+                priority: document.getElementById('prioritySelect').value,
+                projectId: projectId,
                 completed: false
             };
             
-            if (!task.text || !task.start || !task.end || !task.projectId) return;
+            if (!task.text || !task.start || !task.end) {
+                alert('Please fill all required fields!');
+                return;
+            }
             
             tasks.push(task);
             saveData();
             renderTodoList();
-            renderProjects();
             renderDashboard();
-            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+            renderProjects();
             e.target.reset();
         });
 
         function renderTodoList() {
-            const taskList = document.getElementById('taskList');
-            taskList.innerHTML = tasks.map(task => {
-                const project = projects.find(p => p.id === task.projectId);
-                return `
-                    <div class="task-item">
-                        <div>
-                            <h4 style="${task.completed ? 'text-decoration: line-through' : ''}">
-                                ${task.text}
-                                <small>(${project?.name || 'No Project'})</small>
-                            </h4>
-                            <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
-                        </div>
-                        <div>
-                            <button onclick="toggleTask(${task.id})">
-                                ${task.completed ? '✓' : '◻'}
-                            </button>
-                            <button onclick="deleteTask(${task.id})">×</button>
-                        </div>
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = tasks.map(task => {
+        const project = projects.find(p => p.id === task.projectId);
+        return `
+            <div class="task-item">
+                <div>
+                    <h4 style="${task.completed ? 'text-decoration: line-through' : ''}">
+                        ${task.text}
+                        <small>(${project?.name || 'No Project'})</small>
+                    </h4>
+                    <div class="task-meta">
+                        <select class="status-select" 
+                                onchange="updateTaskStatus(${task.id}, this.value)"
+                                style="margin-right: 10px;">
+                            <option value="To Do" ${task.status === 'To Do' ? 'selected' : ''}>To Do</option>
+                            <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
+                        </select>
+                        <span class="priority-tag priority-${task.priority.toLowerCase()}">
+                            ${task.priority}
+                        </span>
+                        <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
                     </div>
-                `;
-            }).join('');
-        }
+                </div>
+                <div>
+                    <button onclick="toggleTask(${task.id})">
+                        ${task.completed ? '✓' : '◻'}
+                    </button>
+                    <button onclick="deleteTask(${task.id})">×</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
         function toggleTask(id) {
-            tasks = tasks.map(task => 
-                task.id === id ? {...task, completed: !task.completed} : task
-            );
+            const numericId = Number(id);
+            tasks = tasks.map(task => {
+                if (task.id === numericId) {
+                    return {...task, completed: !task.completed};
+                }
+                return task;
+            });
             saveData();
             renderTodoList();
             renderDashboard();
-            if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
         }
 
         function deleteTask(id) {
@@ -509,14 +545,30 @@
             updateTaskList();
             renderProjectStats();
         }
+        function updateTaskStatus(taskId, newStatus) {
+    const numericId = Number(taskId);
+    tasks = tasks.map(task => {
+        if (task.id === numericId) {
+            return {...task, status: newStatus};
+        }
+        return task;
+    });
+    saveData();
+    renderTodoList();
+    renderDashboard();
+    if(document.getElementById('calendar').style.display === 'block') renderMainCalendar();
+    renderProjects();
+}
 
-        function updateTaskList() {
-            const taskList = document.getElementById('dashboardTaskList');
-            const filteredTasks = tasks.filter(task => 
-                new Date(task.start) <= selectedDate && 
-                new Date(task.end) >= selectedDate &&
-                !task.completed
-            );
+function updateTaskList() {
+    const taskList = document.getElementById('dashboardTaskList');
+    const filteredTasks = tasks.filter(task => {
+        const taskDate = new Date(task.start);
+        return taskDate <= selectedDate && 
+               new Date(task.end) >= selectedDate &&
+               !task.completed;
+    });
+
 
             document.getElementById('selectedDateLabel').textContent = 
                 selectedDate.toLocaleDateString('en-US', {
@@ -526,18 +578,35 @@
                     day: 'numeric'
                 });
 
-            taskList.innerHTML = filteredTasks.map(task => `
-                <div class="task-item">
-                    <div>
-                        <h4>${task.text}</h4>
-                        <small>${formatDate(task.start)} - ${formatDate(task.end)}</small>
+                taskList.innerHTML = filteredTasks.map(task => {
+        const project = projects.find(p => p.id === task.projectId);
+        return `
+            <div class="task-item">
+                <div>
+                    <h4>${task.text}</h4>
+                    <div class="task-meta">
+                        <select class="status-select" 
+                                onchange="updateTaskStatus(${task.id}, this.value)"
+                                style="margin-right: 10px;">
+                            <option value="To Do" ${task.status === 'To Do' ? 'selected' : ''}>To Do</option>
+                            <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
+                        </select>
+                        <span class="priority-tag priority-${task.priority.toLowerCase()}">
+                            ${task.priority}
+                        </span>
+                        <small>${project?.name || 'No Project'} • ${formatDate(task.start)} - ${formatDate(task.end)}</small>
                     </div>
+                </div>
+                <div>
                     <button onclick="toggleTask(${task.id})">✓ Complete</button>
                 </div>
-            `).join('') || '<p>No tasks for selected date</p>';
-        }
+            </div>
+        `;
+    }).join('') || '<p>No tasks for selected date</p>';
+}
 
-        // Project Progress
+
         function calculateProjectProgress(projectId) {
             const projectTasks = tasks.filter(t => t.projectId === projectId);
             if (projectTasks.length === 0) return 0;
@@ -563,7 +632,6 @@
             }).join('');
         }
 
-        // Helper Functions
         function changeMonth(offset, isCompact = false) {
             currentDate.setMonth(currentDate.getMonth() + offset);
             if(isCompact) renderCompactCalendar();
